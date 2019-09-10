@@ -1,8 +1,10 @@
 ---
 title: "Assignment 1 - Data Cleaning - Instructions"
-author: "[FILL IN YOUR NAME]"
-date: "[FILL IN THE DATE]"
-output: html_document
+author: "Eva SH"
+date: "5/9/19"
+output: 
+  md_document:
+    variant: markdown_github
 ---
 
 # Assignment 1, Language development in Autism Spectrum Disorder (ASD) - Brushing up your code skills
@@ -62,6 +64,10 @@ If you created an RStudio project, then your working directory (the directory wi
 
 ```{r}
 pacman::p_load(tidyverse,janitor)
+
+library(readr)
+library(stringr)
+
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -70,7 +76,9 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
-
+demo_train <- read_csv("demo_train.csv")
+LU_train <- read_csv("LU_train.csv")
+token_train <- read_csv("token_train.csv")
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologist collected the demographic data, the linguist analyzed the length of utterance in May 2014 and the fumbling jack-of-all-trades analyzed the words several months later. 
@@ -90,7 +98,10 @@ Tip: look through the chapter on data transformation in R for data science (http
 
 
 ```{r}
-
+#Changing participant name and visit in demo_train df
+colnames(demo_train)[1]<-"SUBJ"
+colnames(demo_train)[2]<-"VISIT"
+View(demo_train)
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported (visit1 vs. 1).
@@ -100,6 +111,17 @@ Tip: The stringr package is what you need. str_extract () will allow you to extr
 
 ```{r}
 
+#Replacing all visits with numbers, token_train
+visit1<-str_replace_all(token_train$VISIT, c("visit1" = "1", "Visit1"= "1","visit2"="2","Visit2"="2","visit3" = "3", "Visit3"= "3","visit4"="4","Visit4"="4","visit5" = "5", "Visit5"= "5","visit6"="6","Visit6"="6"))
+
+#Mutating to apply new names
+token_train_new<-mutate(token_train,VISIT=visit1)
+
+#Replacing all visits with numbers, LU_train
+visit1LU<-str_replace_all(LU_train$VISIT, c("visit1" = "1", "Visit1"= "1","visit2"="2","Visit2"="2","visit3" = "3", "Visit3"= "3","visit4"="4","Visit4"="4","visit5" = "5", "Visit5"= "5","visit6"="6","Visit6"="6"))
+
+#Mutating to apply new names
+LU_train_new<-mutate(LU_train,VISIT=visit1LU)
 
 ```
 
@@ -111,6 +133,34 @@ Tip: You can either have one line of code for each child name that is to be chan
 
 
 ```{r}
+
+#Naming . as "dot" to specify (. has a function in the stringr package)
+dot <- "\\."
+
+#Removing all dots in token_train:
+tt1 <-str_remove_all(token_train_new$SUBJ,dot)
+tt2 <-str_remove_all(token_train_new$VISIT,dot)
+
+#Mutating to apply
+token_train_1<-mutate(token_train,SUBJ=tt1)
+token_train_done<-mutate(token_train_1,VISIT=tt2)
+View(token_train_done)
+
+#Removing all dots in LU_train:
+lt1 <-str_remove_all(LU_train_new$SUBJ,dot)
+lt2 <-str_remove_all(LU_train_new$VISIT,dot)
+
+#Mutating to apply
+LU_train_1<-mutate(LU_train,SUBJ=lt1)
+LU_train_done<-mutate(LU_train_1,VISIT=lt2)
+View(LU_train_done)
+
+#Removing all dots in demo_train:
+dt1 <-str_remove_all(demo_train$SUBJ,dot)
+
+#Mutating to apply
+demo_train_done<-mutate(demo_train,SUBJ=dt1)
+View(demo_train_done)
 
 ```
 
@@ -125,8 +175,8 @@ The variables we need are:
 * Gender, 
 * Age, 
 * ADOS,  
-* MullenRaw, 
-* ExpressiveLangRaw, 
+* MullenRaw, = MR
+* ExpressiveLangRaw, = ELR
 * Socialization
 * MOT_MLU, 
 * CHI_MLU, 
@@ -148,6 +198,26 @@ Feel free to rename the variables into something you can remember (i.e. nonVerba
 
 ```{r}
 
+#demo_train
+#Renaming columns names for comfort
+colnames(demo_train_done)[33]<-"ELR"
+colnames(demo_train_done)[24]<-"MR"
+View(demo_train_done)
+
+#Selecting relevant columns 
+demo_train_select<-select(demo_train_done,SUBJ,VISIT,Diagnosis,Ethnicity,Gender,Age,ADOS,MR,ELR,Socialization)
+View(demo_train_select)
+
+#LU_train
+#Selecting relevant columns 
+LU_train_select<-select(LU_train_done,SUBJ,VISIT,MOT_MLU,CHI_MLU)
+View(LU_train_select)
+
+#token_train
+#Selecting relevant columns 
+token_train_select<-select(token_train_done,SUBJ,VISIT,types_MOT,types_CHI,tokens_MOT,tokens_CHI)
+View(token_train_select)
+
 ```
 
 2e. Finally we are ready to merge all the data sets into just one. 
@@ -158,6 +228,13 @@ Some things to pay attention to:
 
 ```{r}
 
+#As merge() takes only two dfs I create one consisting of two:
+tokenLU<-merge(token_train_select,LU_train_select,by=c("SUBJ","VISIT"),all=TRUE)
+
+#Merging the "double" df with the last: 
+total<-merge(tokenLU,demo_train_select,by=c("SUBJ","VISIT"),all=TRUE)
+
+View(total)
 
 ```
 
@@ -174,16 +251,67 @@ A possible way to do so:
 
 ```{r}
 
+#Select relevant variables in new df
+selected<-select(total,SUBJ,VISIT,ADOS,MR,ELR,Socialization)
+
+#Filter for only visit 1
+visit1only<-filter(selected,VISIT==1)
+
+#Rename variables so that it is clear that it is just for visit 1
+colnames(visit1only)[3]<-"ADOS1"
+colnames(visit1only)[4]<-"MR1"
+colnames(visit1only)[5]<-"ELR1"
+colnames(visit1only)[6]<-"Socialization1"
+
+#Remove VISIT variable: 
+visit1onlydone<-select(visit1only,-c(VISIT))
+
+#Merge visit1onlydone with total
+total<-merge(total,visit1onlydone,by=c("SUBJ"),all=TRUE)
+
+View(total)
+
+#Note: The total df contains BOTH the different data from all visits AND the visit1 for all visits (good to have!)
+
+#Df WITHOUT different data: 
+
+total_visit1<-select(total,-c(ADOS,MR,ELR,Socialization))
+
+View(total_visit1)
 ```
 
 2g. Final touches
 
 Now we want to
 * anonymize our participants (they are real children!). 
-* make sure the variables have sensible values. E.g. right now gender is marked 1 and 2, but in two weeks you will not be able to remember, which gender were connected to which number, so change the values from 1 and 2 to F and M in the gender variable. For the same reason, you should also change the values of Diagnosis from A and B to ASD (autism spectrum disorder) and TD (typically developing). Tip: Try taking a look at ifelse(), or google "how to rename levels in R".
+* make sure the variables have sensible values. E.g. right now gender is marked 1 and 2, but in two weeks you will not be able to remember, which gender were connected to which number, so change the values from 1 and 2 to F and M in the gender variable. For the same reason, you should also change the values of Diagnosis from A and B to ASD (autism spectrum disorder) and TD (typically developing). 
+
+Tip: Try taking a look at ifelse(), or google "how to rename levels in R".
 * Save the data set using into a csv file. Hint: look into write.csv()
 
 ```{r}
+
+#Anonymizing the subjects using numbers (NOTE: I have not excluded NAs)
+
+total2<-factor(as.numeric(total_visit1$SUBJ))
+
+#Mutating to apply new names
+total3<-mutate(total_visit1,SUBJ=total2)
+
+#Changing gender
+total4<-str_replace_all(total3$Gender, c("1" = "F", "2"= "M"))
+
+#Mutating to apply new names
+total5<-mutate(total3,Gender=total4)
+
+#Changing diagnosis
+total6<-str_replace_all(total5$Diagnosis, c("A" = "ASD", "B"= "TD"))
+
+#Mutating to apply new names
+cleandata<-mutate(total5,Diagnosis=total6)
+
+View(cleandata)
+
 
 ```
 
